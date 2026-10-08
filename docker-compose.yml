@@ -1,0 +1,51 @@
+# Usage
+#   cp .env.example .env            # add GEMINI_API_KEY, ADMIN_PASSWORD
+#   docker compose up --build       # dashboard on http://localhost:8501
+#   docker compose --profile bot up --build   # dashboard + chat-bot webhook on :8000
+services:
+  hlrn:
+    build: .
+    image: hlrn:latest
+    container_name: hlrn-app
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      HLRN_DB_PATH: /app/data/hlrn.db      # overrides .env so data always lands on the volume
+    volumes:
+      - hlrn-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  # Optional WhatsApp / Telegram webhook (FastAPI). Shares the same SQLite volume, so
+  # moderator overrides made in the dashboard are seen by the bot (cache lag: CACHE_TTL_SEC).
+  bot:
+    image: hlrn:latest
+    container_name: hlrn-bot
+    profiles: ["bot"]
+    depends_on:
+      - hlrn
+    command: ["uvicorn", "bot_webhook:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      HLRN_DB_PATH: /app/data/hlrn.db
+    volumes:
+      - hlrn-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  hlrn-data:

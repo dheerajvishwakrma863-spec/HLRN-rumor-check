@@ -1,0 +1,8 @@
+[server]
+maxUploadSize = 40          # MB - keep in sync with MAX_UPLOAD_MB
+enableXsrfProtection = true
+enableCORS = true
+headless = true
+
+[browser]
+gatherUsageStats = false
